@@ -36,6 +36,7 @@ define('FILE_UPLOAD', 32);
 
 class Route
 {
+	public static $debug = false;
 	private static $request = null;
 	private static $routes  = array();
 
@@ -78,7 +79,10 @@ class Route
 		if ( self::$request === null ) {
 			return false;
 		}
-		print_r(self::$routes);
+		if ( self::$debug ) {
+			header('Content-type: text/plain');
+			print_r(self::$routes);
+		}
 
 		// Check the http verb
 		$httpVerbs = array(
@@ -95,24 +99,33 @@ class Route
 		$r = self::$request;
 		foreach ( self::$routes AS $i => $route ) {
 			$pass = true;
-			echo "I: $i\n";
+			if ( self::$debug )
+				echo "Route Index: $i\n";
 			$pass = $pass && self::testHttpVerb($route['httpVerb'], $r->httpVerb);
-			echo "\thttpVerb: $pass\n";
+			if ( self::$debug )
+				echo "\thttpVerb: $pass\n";
 			$pass = $pass && self::testSsl($route['ssl'], $r->ssl);
-			echo "\tssl: $pass\n";
+			if ( self::$debug )
+				echo "\tssl: $pass\n";
 			$pass = $pass && self::testPort($route['port'], $r->port);
-			echo "\tport: $pass\n";
+			if ( self::$debug )
+				echo "\tport: $pass\n";
 			$pass = $pass && self::testDomain($route['domain'], $r->domain);
-			echo "\tdomain: $pass\n";
+			if ( self::$debug )
+				echo "\tdomain: $pass\n";
 			$pass = $pass && self::testUrl($route['url'], $r->url);
-			echo "\turl: $pass\n";
+			if ( self::$debug )
+				echo "\turl: $pass\n";
 			$pass = $pass && self::testQuery($route['query'], $r->query);
-			echo "\tquery: $pass\n";
+			if ( self::$debug )
+				echo "\tquery: $pass\n";
 			$pass = $pass && self::testCookie($route['cookie'], $r->cookie);
-			echo "\tcookie: $pass\n";
+			if ( self::$debug )
+				echo "\tcookie: $pass\n";
 
 			if ( $pass ) {
-				echo "\tPASSED!\n";
+				if ( self::$debug )
+					echo "\tPASSED!\n";
 				
 				// Parse the URL and map the params
 				if ( isset($route['params']) ) {
@@ -129,7 +142,8 @@ class Route
 				}
 
 			} else {
-				echo "\tDID NOT PASS\n";
+				if ( self::$debug )
+					echo "\tDID NOT PASS\n";
 			}
 		}
 		
@@ -152,6 +166,11 @@ class Route
 	public static function executeFilter($filter, $request, $route)
 	{
 		if ( is_string($filter) ) {
+			$FILTER = $filter;
+			$REQUEST = $request;
+			unset($request);
+			$ROUTE   = $route;
+			unset($route);
 			$ret = include( $filter );
 			
 		} else if ( is_array($filter) ) {
@@ -169,6 +188,11 @@ class Route
 					}
 				}
 			} else if ( !isset($route['filter'][1]) ) {
+				$FILTER = $filter;
+				$REQUEST = $request;
+				unset($request);
+				$ROUTE   = $route;
+				unset($route);
 				$ret = include( $route['filter'][0] );
 			}
 		}
@@ -178,6 +202,11 @@ class Route
 	public static function executeHandler($handler, $request, $route)
 	{
 		if ( is_string($handler) ) {
+			$HANDLER = $handler;
+			$REQUEST = $request;
+			unset($request);
+			$ROUTE   = $route;
+			unset($route);
 			$ret = include( $handler );
 		} else if ( is_array($handler) ) {
 			if ( is_string($handler[1]) ) {
@@ -193,8 +222,13 @@ class Route
 						$ret = call_user_method($handler[1][1], $obj, $request, $route);
 					}
 				}
-			} else if ( !isset($handler['filter'][1]) ) {
-				$ret = include( $handler['filter'][0] );
+			} else if ( !isset($handler[1]) ) {
+				$HANDLER = $handler;
+				$REQUEST = $request;
+				unset($request);
+				$ROUTE   = $route;
+				unset($route);
+				$ret = include( $handler[0] );
 			}
 		}
 		return $ret;
@@ -250,10 +284,12 @@ class Route
 		// We have a regex expression
 		if ( substr($expected, 0, 1) == '^' ) {
 			$preg = str_replace('/', '\/', $expected);
-			echo "preg_match: " . $preg . "\n";
+			if ( self::$debug )
+				echo "preg_match: " . $preg . "\n";
 			return preg_match('/' . $preg . '/i', $actual);
 		}
-		echo "$expected == $actual\n";
+		if ( self::$debug )
+			echo "Expected: \"$expected\" == \"$actual\"\n";
 		return $expected == $actual;
 	}
 
